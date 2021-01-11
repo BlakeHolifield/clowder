@@ -65,7 +65,6 @@ func (db *localDbProvider) Provide(app *crd.ClowdApp, c *config.AppConfig) error
 	dbCfg.AdminUsername = "postgres"
 
 	db.Config = dbCfg
-
 	var image string
 	if db.Env.Spec.Providers.Database.Image != "" {
 		image = db.Env.Spec.Providers.Database.Image
@@ -136,6 +135,40 @@ func makeLocalDB(dd *apps.Deployment, nn types.NamespacedName, app *crd.ClowdApp
 	} else {
 		volSource = core.VolumeSource{
 			EmptyDir: &core.EmptyDirVolumeSource{},
+		}
+	}
+
+	if app.Spec.Cyndi {
+		cmData := make(map[string]string)
+		setUpUsersSh := `
+			psql $POSTGRESQL_DATABASE < /opt/app-root/src/postgresql-start/setUpUsers.sql
+			psql $POSTGRESQL_DATABASE -c "GRANT cyndi_reader to $POSTGRESQL_USER"
+			psql $POSTGRESQL_DATABASE -c "ALTER USER insightsapi WITH SUPERUSER;"
+		`
+		setUpUsersSql := `
+			CREATE SCHEMA inventory;
+			-- The admin ROLE that allows the inventory schema to be managed
+			CREATE ROLE cyndi_admin;
+			GRANT ALL PRIVILEGES ON SCHEMA inventory TO cyndi_admin;
+			-- The reader ROLE that provides SELECT access to the inventory.hosts view
+			CREATE ROLE cyndi_reader;
+			GRANT USAGE ON SCHEMA inventory TO cyndi_reader;
+			-- Create a user for Cyndi with cyndi_admin ROLE
+			-- Used by Project Cyndi to access the database and manage the inventory schema
+			CREATE USER cyndi WITH PASSWORD 'cyndi' IN ROLE cyndi_admin;
+		`
+		cmData["setUpUsers.sh"] = setUpUsersSh
+		cmData["setUpUsersSql"] = setUpUsersSql
+		cm := core.ConfigMap{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ConfigMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      nn.Name + "-init",
+				Namespace: nn.Namespace,
+			},
+			Data: cmData,
 		}
 	}
 
