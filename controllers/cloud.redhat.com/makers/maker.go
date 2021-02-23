@@ -190,7 +190,7 @@ func (m *Maker) getConfig() (*config.AppConfig, error) {
 	return &appConfig, nil
 }
 
-func applyPodAntiAffinity(t *core.PodTemplateSpec) {
+func ApplyPodAntiAffinity(t *core.PodTemplateSpec) {
 	labelSelector := &metav1.LabelSelector{MatchLabels: t.Labels}
 	t.Spec.Affinity = &core.Affinity{PodAntiAffinity: &core.PodAntiAffinity{
 		PreferredDuringSchedulingIgnoredDuringExecution: []core.WeightedPodAffinityTerm{{
@@ -278,7 +278,7 @@ func buildPodTemplate(app *crd.ClowdApp, env *crd.ClowdEnvironment, pt *core.Pod
 		Command:      pod.Command,
 		Args:         pod.Args,
 		Env:          envvar,
-		Resources:    processResources(&pod, env),
+		Resources:    ProcessResources(&pod, env),
 		VolumeMounts: pod.VolumeMounts,
 		Ports: []core.ContainerPort{{
 			Name:          "metrics",
@@ -301,7 +301,7 @@ func buildPodTemplate(app *crd.ClowdApp, env *crd.ClowdEnvironment, pt *core.Pod
 
 	pt.Spec.Containers = []core.Container{c}
 
-	pt.Spec.InitContainers = processInitContainers(nn, &c, pod.InitContainers)
+	pt.Spec.InitContainers = ProcessInitContainers(nn, &c, pod.InitContainers)
 
 	pt.Spec.Volumes = pod.Volumes
 	pt.Spec.Volumes = append(pt.Spec.Volumes, core.Volume{
@@ -313,7 +313,7 @@ func buildPodTemplate(app *crd.ClowdApp, env *crd.ClowdEnvironment, pt *core.Pod
 		},
 	})
 
-	applyPodAntiAffinity(pt)
+	ApplyPodAntiAffinity(pt)
 
 	annotations := make(map[string]string)
 	annotations["configHash"] = hash
@@ -346,7 +346,7 @@ func applyCronJob(app *crd.ClowdApp, env *crd.ClowdEnvironment, cj *batch.CronJo
 		cj.Spec.JobTemplate.Spec.Template.Spec.RestartPolicy = job.RestartPolicy
 	}
 
-	applyPodAntiAffinity(&cj.Spec.JobTemplate.Spec.Template)
+	ApplyPodAntiAffinity(&cj.Spec.JobTemplate.Spec.Template)
 
 	annotations := make(map[string]string)
 	annotations["configHash"] = hash
@@ -368,14 +368,14 @@ func applyOneShotJob(app *crd.ClowdApp, env *crd.ClowdEnvironment, j *batchv1.Jo
 		j.Spec.Template.Spec.RestartPolicy = job.RestartPolicy
 	}
 
-	applyPodAntiAffinity(&j.Spec.Template)
+	ApplyPodAntiAffinity(&j.Spec.Template)
 
 	annotations := make(map[string]string)
 	annotations["configHash"] = hash
 	j.Spec.Template.SetAnnotations(annotations)
 }
 
-func processResources(pod *crd.PodSpec, env *crd.ClowdEnvironment) core.ResourceRequirements {
+func ProcessResources(pod *crd.PodSpec, env *crd.ClowdEnvironment) core.ResourceRequirements {
 	var lcpu, lmemory, rcpu, rmemory resource.Quantity
 	nullCPU := resource.Quantity{Format: resource.DecimalSI}
 	nullMemory := resource.Quantity{Format: resource.BinarySI}
@@ -416,7 +416,7 @@ func processResources(pod *crd.PodSpec, env *crd.ClowdEnvironment) core.Resource
 	}
 }
 
-func processInitContainers(nn types.NamespacedName, c *core.Container, ics []crd.InitContainer) []core.Container {
+func ProcessInitContainers(nn types.NamespacedName, c *core.Container, ics []crd.InitContainer) []core.Container {
 	if len(ics) == 0 {
 		return []core.Container{}
 	}
@@ -566,7 +566,7 @@ func initDeployment(app *crd.ClowdApp, env *crd.ClowdEnvironment, d *apps.Deploy
 		Command:      pod.Command,
 		Args:         pod.Args,
 		Env:          envvar,
-		Resources:    processResources(&pod, env),
+		Resources:    ProcessResources(&pod, env),
 		VolumeMounts: pod.VolumeMounts,
 		Ports: []core.ContainerPort{{
 			Name:          "metrics",
@@ -596,7 +596,7 @@ func initDeployment(app *crd.ClowdApp, env *crd.ClowdEnvironment, d *apps.Deploy
 
 	d.Spec.Template.Spec.Containers = []core.Container{c}
 
-	d.Spec.Template.Spec.InitContainers = processInitContainers(nn, &c, pod.InitContainers)
+	d.Spec.Template.Spec.InitContainers = ProcessInitContainers(nn, &c, pod.InitContainers)
 
 	d.Spec.Template.Spec.Volumes = pod.Volumes
 	d.Spec.Template.Spec.Volumes = append(d.Spec.Template.Spec.Volumes, core.Volume{
@@ -608,7 +608,7 @@ func initDeployment(app *crd.ClowdApp, env *crd.ClowdEnvironment, d *apps.Deploy
 		},
 	})
 
-	applyPodAntiAffinity(&d.Spec.Template)
+	ApplyPodAntiAffinity(&d.Spec.Template)
 
 	annotations := make(map[string]string)
 	annotations["configHash"] = hash
